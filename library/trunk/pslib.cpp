@@ -77,7 +77,9 @@ Print	-	Prints message to buffer
 */
 typedef struct
 {
-	char res[0x20];					//0x00
+	char res[0x18];					//0x00
+	void (far pascal*SetPalette)(void far*);	//0x18
+	char res1[0x04];				//0x1c
 	int (far pascal*Draw)(Word res);		//0x20
 	char res2[0x10];				//0x24
 	int (far pascal*Clear)(Word res1,Word color);	//0x34
@@ -274,11 +276,11 @@ int far pascal mykeyhandler(KeyState far*keys,DWord lparam)
 	tm.unknown=0;
 	tm.txtcolor=12;
 	tm.bkcolor=0;
-	tm.x=40;
+	tm.x=10;
 	tm.y=10;
 
 	ultoa(keys->keyMap,buffer,2);
-	sprintf(buffer,"%032s",buffer);
+	//sprintf(buffer,"%032s",buffer);
 	tm.strptr=buffer;
 	funcs7->Print(&tm);
 	tm.y+=30;
@@ -721,10 +723,11 @@ void ScrollDisplayTest()
 typedef struct
 {
 	void (pascal far*func0)(void far*);			//0x00
-	void (pascal far*func4)(void far*,Word);      //0x04
-	char res2[0x8];			//0x08
-	void (pascal far*func10)(void far*,void far*);			//0x10
-	void (pascal far*func14)(void far*,Word left);			//0x14
+	void (pascal far*func4)(void far*,Word);		//0x04
+	void (pascal far*func8)(void far*,Word,Word);		//0x08
+	char res2[0x4];						//0x0C
+	void (pascal far*func10)(void far*,void far*);		//0x10
+	void (pascal far*func14)(void far*,Word left);		//0x14
 	char res3[0x18];		//0x18
 	Byte *(pascal far *func30)(Word unk1,Word unk2);     //0x30
 	void (pascal far*func34)(void far*);			//0x34
@@ -739,6 +742,8 @@ void funcATest()
 {
 	FUNCS8_TABLE*f=(FUNCS8_TABLE*)funcs8;
 	Byte *b;
+	DWord test;
+	char buffer[20];
 
 	funcs7->Clear(0,0);
 
@@ -750,7 +755,7 @@ void funcATest()
 	push 370//height
 	push 0
 	push 5//border color
-	call dword ptr es:[bx+38h]     // draw frame
+	call dword ptr es:[bx+0x38]     // draw frame
 	}
 
 	b=f->func30(2,2);//alloc DlgBox
@@ -760,8 +765,9 @@ void funcATest()
 	f->func14(*((void**)(b+0x21)),60); // set button position
 
 
-	//f->func68(b);
-	//f->func78(0);
+	f->func8(*((void**)(b+0x21)),276,10);// set button position
+//	f->func68(b);
+//	f->func78(1);
 	f->func38(b);//draw dlg
 
 //	funcs7->FillRectangle(0,88,752,370,0,7);
@@ -773,12 +779,16 @@ void funcATest()
 	f->func4(*((void**)(b+0x21)),2);   //push button
 	f->func0(*((void**)(b+0x21)));     //redraw button
 
+//	funcs7->func18(&test);// set palette
+//	ultoa(test,buffer,10);
+//        print(buffer,10,10);
+
 	funcs7->Draw(0);
 
 
 	WaitForKey();
 
-        f->func34(b);// deleteDlgBox
+	f->func34(b);// deleteDlgBox
 }
 
 void main()
