@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <dos.h>
 #include <conio.h>
-//#include <bcd.h>
 
 #define PS_GFX_FUNC_NO 7	       // define graphics function number
 
@@ -55,36 +54,9 @@ void ps_get_func_ptr(Byte funcno, Word *seg, Word *ofs)
   *ofs=regs.x.dx;                      // read offset from DX
 }
 
-int (pascal far*ps_ltm)(PS_TEXT_MSG *tm)=0;
-
-
 //**************** load text message from structure to camera internal regs *
 void ps_gfx_load_text_msg(PS_TEXT_MSG *tm)
 {
- if (ps_ltm==0)
- {
-//	void far *addr=&ps_ltm;
-	Word fs,fo;
-	asm{
-	push ds
-	mov ah,7
-	int 0xff
-//	les bx,addr
-//	mov fo,dx
-//	mov dx,ds
-//	mov fs,dx
-	mov bx,ds
-	mov es,bx
-	mov bx,dx
-	mov ax,es:[bx+0x78]
-	mov cx,es:[bx+0x7a]
-	mov fo,ax
-	mov fs,cx
-	pop ds
-	}
-	ps_ltm=(int (pascal far*)(PS_TEXT_MSG*))((DWord)fs*256*256+fo);
- }
-// ps_ltm(tm);/*
   Word fs,fo,ts,to;                    // get pointer to gfx func
   ts=hlp_ptr2seg(tm);                  // get segment part of tm pointer
   to=hlp_ptr2ofs(tm);                  // get offset part of tm pointer
@@ -139,11 +111,8 @@ void ps_print(char *str, Word x, Word y, Word txtcolor, Word bkcolor)
   tm.bkcolor=bkcolor;
   tm.unknown=0;
   tm.strptr=(DWord)str;                // convert pointer to DWord
-  //f=fopen("D:\\prtlog.txt","a+");
 
 //  sprintf(buffer,"before &tm: %lu str: \"%s\" back: %lu back2: %lu\n",&tm,str,&ps_print,ps_print);
-//  log(buffer);
-  //fclose(f);
 
   ps_gfx_load_text_msg(&tm);           // load structure to camera
 //  ps_gfx_exec_func();                  // execute display command
@@ -159,7 +128,6 @@ Word hlp_ptr2seg2(DWord pointer)
 {
   pointer=pointer>>16;
   return (Word)pointer;
-  //return((Word)((DWord)pointer>>16));
 }
 
 struct KeyData{		// offset
@@ -193,11 +161,6 @@ struct KeyData{		// offset
 
 int far pascal back(struct KeyData far*keys,Word far*wparam)
 {
-/*	char buffer[10];
-	ultoa(keys->keyMap,buffer,10);
-	ps_exec_func34();
-	ps_print(buffer,10,10,14,0);
-	ps_gfx_exec_func();*/
 	Word backs,backo;
 	char buffer2[100];
 	asm{
@@ -207,12 +170,9 @@ int far pascal back(struct KeyData far*keys,Word far*wparam)
 		mov backs,bx
 	}
 
-	//dumplog(MK_FP(_SS,_BP),100);
-
 
 	if (keys->keyMap&KEY_SPOTFOCUS)
 	{
-		//sprintf(buffer2,"Wurst %X:%X",backs,backo);
 		ps_exec_func34();
 		itoa(backs,buffer2,16);
 		ps_print(buffer2,200,10,14,0);
@@ -233,57 +193,8 @@ Byte real(Byte b)
 	Byte high,low;
 	high=b>>4;
 	low=b&0xF;
-        return high*10+low;
+	return high*10+low;
 }
-
-/*int far pascal oldback(DWord d1,Word far*d2)
-{
-	FILE *f;
-		DWord j;
-	char buffer[10];
-	Word wert;
-
-	asm{
-	les bx,d1
-	mov ax,es:[bx]
-	mov wert,ax
-	}
-
-	ps_exec_func34();
-
-	if (wert==5)
-	{
-		ps_print("komisches ding 5",200,100,14,0);
-		for (j=0; j<500000; j++); // delay ~2
-	}
-
-	itoa(wert,buffer,10);
-	ps_print(buffer,200,10,14,0);
-	asm{
-	les bx,d1
-	mov ax,es:[bx+5]
-	mov wert,ax
-	}
-
-	itoa(wert,buffer,10);
-	ps_print(buffer,200,40,14,0);
-
-	if (wert&2)
-	{
-		*d2=1;
-	}
-
-	asm{
-	les bx,d1
-	mov ax,es:[bx+7]
-	mov wert,ax
-	}
-
-	itoa(wert,buffer,10);
-	ps_print(buffer,200,70,14,0);
-
-	ps_gfx_exec_func();
-} */
 
 void KeyboardDispatcher()
 {
@@ -358,7 +269,7 @@ void dumplog2(void far*pt,DWord size,int savetofile)
 
 
 		if (i%4==3)
-			fprintf(f,"  "); 
+			fprintf(f,"  ");
 
 
 		if (i<size&&buf[i]>32&&buf[i]<128)
@@ -388,16 +299,6 @@ void dumplog(void far*pt,DWord size)
   Word ka=0;
   char buffer[20];
 
-//void far(*oldfunc)();
-
-int pascal far my_ltm(PS_TEXT_MSG *tm)
-{
-	if (((char far*)tm->strptr)[0]!=0)
-		((char far*)tm->strptr)[0]='j';
-
-//	return ps_ltm(tm);
-	return 0;
-}
 
 void interrupt(* int0x90_handler)(...);
 void far*h;
@@ -553,7 +454,7 @@ void initInfo()
 	Word i;
 	Word segp;
 	infomemCount=0;
-	i=allocmem(200,&segp);//new ADD_INFO[500];
+	i=allocmem(100,&segp);//new ADD_INFO[500];
 	log((DWord)i);
 	infomem=(ADD_INFOS*)MK_FP(segp,0);
 	for (i=0;i<2048;i++)
@@ -583,131 +484,98 @@ void interrupt my90handler(...)
 	}
 	{
 		Word fs,fo,fs2,fo2;
-		Word j;
-		char far*pt;
-		FILE *f;
+		Word j,i;
 		asm{
 		mov ax,[bp+0x14]
-		mov fs2,ax
+		mov fs,ax
 		mov ax,[bp+0x12]
-		mov fo2,ax
+		mov fo,ax
 		}
-		ADD_INFO *ai=findInfo(MK_FP(fs2,fo2),1);
+		ADD_INFO *ai=findInfo(MK_FP(fs,fo),1);
 		if(ai)
 		{
-			char buffer[100];
+			char buffer[30];
+			Word curBP=_BP;
+			Word curCGStack;
+			if (!ai->name)
+			{
+				sprintf(buffer,"func%X_%X",(Word)ai->tablenumber,(Word)ai->offset);
+				log(buffer);
+			}
+			else
+			{
+				//sprintf(buffer,"%X:%X",fs,fo);
+				//log(ai->name);
+				//log(buffer);
+			}
+
+			asm{
+				mov bx,curBP
+				mov ax,ss:[bx]
+				mov curBP,ax
+			}
 			asm{
 				mov bx,0x440
 				mov es,bx
 				mov bx,2
 				mov ax,es:[bx]
-				mov bx,ax}
-				marke:asm {
-				mov ax,es:[bx+2]
-				mov fs,ax
-				mov ax,es:[bx+4]
-				mov fo,ax
-				cmp ax,0x269
-				jz marke
+				mov curCGStack,ax
 			}
-
-
-			if (!ai->name)
+			for (int i=0;i<6;i++)
 			{
-				sprintf(buffer,"func%X_%X : %X:%X",(Word)ai->tablenumber,(Word)ai->offset,fs,fo);
+			       Word newBP;
+			asm{
+				mov bx,curBP
+				mov ax,ss:[bx+2]
+				mov fo2,ax
+				mov ax,ss:[bx+4]
+				mov fs2,ax
+			}
+			if (fs2==0x440&&fo2==0x269)
+			{
+				asm{
+				mov bx,0x440
+				mov es,bx
+				mov bx,curCGStack
+				mov ax,es:[bx+2]
+				mov fs2,ax
+				mov ax,es:[bx+4]
+				mov fo2,ax
+				mov ax,es:[bx+8]
+				mov j,ax
+				add bx,10
+				mov curCGStack,bx
+				}
+				sprintf(buffer,"bank: %X ptr: %X:%X",j,fs2,fo2);
 				log(buffer);
 			}
 			else
 			{
-				sprintf(buffer,"%X:%X",fs,fo);
-				log(ai->name);
+				sprintf(buffer,"ptr: %X:%X",fs2,fo2);
 				log(buffer);
 			}
-
-				//mov cx,ax
-				//mov ax,es:[bx+24]
-
-			/*	add ax,22
-				mov bx,ax
-				mov ax,es:[bx]
-				mov fs,ax
-				mov ax,es:[bx+2]
-				mov fo,ax*/
-
-			//log((DWord)_AX);
-			//log((DWord)MK_FP(_CX,_AX));
-			//sprintf(buffer,"%Fp",MK_FP(fs,fo));
-			//log(buffer);
+				asm{
+					mov bx,curBP
+					mov ax,ss:[bx]
+					mov newBP,ax
+				}
+				if (newBP>curBP)
+					curBP=newBP;
+				else
+					break;
+			}
 		}
 /*		addressbuffer[addCount]=(DWord)MK_FP(fs,fo);
 		addCount++;
 
 		if (addCount>=100)
 			saveAddresses();*/
-/*		f=fopen("ret.txt","w");
-		//fwrite(pt,100,1,f);
-		fprintf(f,"%X:%X",fs,fo);
-		fclose(f);               */
 
-/*		if (fs==0xdad9||fs==0xdc80||fs==0xda0c||fs==0x9cb7||fs==0x976f||fs==0xd981||fs==0xd9c6||fs==0xd8e9||fs==0xb4ba)
-		//if (fs==0xccea||fs==0xcb47||fs==0xce0c)
-		{
-		for (j=1;j<0xb;j++)
-		{
-			if (j==3||j==7)
-				continue;
-			DWord i;
-			DWord *functable=(DWord*)LoadFuncTable(j);
-			DWord grenze[]={0,52,19,0,8,25,3,37,31,4,20,26,46,4};
-
-			char buffer[100];
-			for (i=0;i<grenze[j];i++)
-			{
-				Word off=FP_OFF(functable[i]);
-				if(fo>off&&fo<off+12&&FP_SEG(functable[i])==fs)
-				{
-					sprintf(buffer,"func%X_%lX",j,i*4,functable[i]);
-					log(buffer);
-					break;
-				}
-			}
-			if (i<grenze[j])
-				break;
-		}
-		}*/
-/*			{
-				log("Function called in seg: dad9h");
-				log((DWord)fo);
-			}    */
-
-
-		if (fs2==0xdc80)
+		if (fs==0xdc80)
 		{
 
-		if (fo2==0x1ed)
+		if (fo==0x1ed)
 		{
-		       //	dumplog(MK_FP(_SS,_BP),200);
-		       //	log((DWord)_BP);
-
-/*		       DWord test;
-		       asm{
-		       mov bx,offset fs
-		       mov fs2,bx
-		       mov bx,seg fs
-		       mov fo2,bx*/
-
-/*		       mov ax,ss:[bx+4]
-		       mov fs2,ax
-		       mov ax,ss:[bx+2]
-		       mov fo2,ax
-		       }               */
-//		       log("int 90h called from dc80:01ed");
-/*		       dumplog(&fs,500);
-//		       dumplog(((Byte far*)&fs)+0x54,300);
-
-//		       dumplog((void far*)*((DWord*)(((Byte far*)&fs)+0x54)),100);
-//		       log("&fs");
-//		       log((DWord)&fs);//*/
 //		       log("Text");
 		       log((char far*)((PS_TEXT_MSG far*)*((DWord far*)(((Byte far*)&fs)+0x54)))->strptr);
 /*		       asm{
@@ -718,33 +586,8 @@ void interrupt my90handler(...)
 		       }
 /*		       dumplog(MK_FP(0x440,0),512);*/
 /*		       log("Ruecksprungadresse");
-		       log(*((DWord*)(((Byte far*)&fs)+0x4a)));
-
-		       asm{
-		       mov ax,ds
-		       mov fo2,ax
+		       log(*((DWord*)(((Byte far*)&fs)+0x4a)));*/
 		       }
-
-		       dumplog2((void far*)(((Byte far*)(*((DWord*)(((Byte far*)&fs)+0x4a))))-100),200,DUMP_FILE);
-		       log("bp");
-		       asm{
-		       mov bx,bp
-		       mov fo2,bx
-		       }
-		       log((DWord)fo2);
-		       log("\n int90handler finished");*/
-		       }
-/*		       test=(DWord)(void far*)&fs+0x58;
-
-		       test=fs+fo*256*256;
-		       f=fopen("D:\\ret.txt","wb");
-		       fwrite(&fs,200,1,f);
-		       fclose(f);
-		       f=fopen("D:\\call.txt","a+");
-		       fprintf(f,"%lu %lu\n %s \n",fs,test,((PS_TEXT_MSG far*)test)->strptr);
-		       fwrite((void far*)(((PS_TEXT_MSG far*)(((DWord)(void far*)(&fs))+0x54))->strptr),5,1,f);
-		       fprintf(f," \n");
-		       fclose(f);       */
 		}
 
 	}
@@ -790,7 +633,70 @@ void pascal far dumpstacktest()
 	log(buffer);
 }
 
-int main(void)
+void bankdump()
+{
+	Word f1,f2;
+	FILE *f;
+	char buffer[100];
+	asm{
+		mov dx,0xfed4
+		in ax,dx
+		mov f1,ax
+		add dx,2
+		in ax,dx
+		mov f2,ax
+	}
+	sprintf(buffer,"Dumping current bank: %X %X",f1,f2);
+	log(buffer);
+	sprintf(buffer,"d:\\bank%X",f1);
+	f=fopen(buffer,"wb");
+	fwrite(MK_FP(0xe000,0),0x8000,2,f);
+	fclose(f);
+}
+
+
+void dumpbank(Word b)
+{
+	Word f1,f2;
+	asm{       // saving old bankaddrs
+		mov dx,0xfed4
+		in ax,dx
+		mov f1,ax
+		add dx,2
+		in ax,dx
+		mov f2,ax
+		// changing bank
+		mov dx,0xfed4
+		mov ax,b
+		out dx,ax
+		add dx,2
+		add ax,4
+		out dx,ax
+	}
+	bankdump();
+	asm{
+		// restoring old values
+		mov dx,0xfed4
+		mov ax,f1
+		out dx,ax
+		add dx,2
+		mov ax,f2
+		out dx,ax
+	}
+
+}
+
+void dumptestmain()
+{
+	dumpbank(0x19c);
+	asm{
+		mov al,0
+		mov ah,0x4c
+		int 0x21
+	}
+}
+
+void main(void)
 {
 	Word fso,foo;
 	Byte far* ptr;
@@ -802,6 +708,11 @@ int main(void)
 	log("               Starting new session");
 	log("------------------------------------------------------");
 
+
+//	dumpbank(0x18c);
+//	dumpbank(0xe8);
+//	dumpbank(0x184);
+
 //	dumpstacktest();
 
 //	log("writing fast address table");
@@ -811,7 +722,8 @@ int main(void)
 	{
 		DWord j;
 		DWord *functable=(DWord*)LoadFuncTable(i);
-		DWord grenze[]={0,52,19,0,8,25,3,37,31,4,20,26,0,0,0,0};//,46,4,10};
+		//DWord grenze[]={0,52,19,0,8,25,3,37,31,4,20,26,0,0,0,0};//,46,4,10};
+		DWord grenze[]={0,0,0,0,0,0,0,0,31,0,0,0,0,0,0,0};
 
 		//sprintf(buffer,"funcs:%u table:%Fp",(Word)i,functable);
 		//log(buffer);
@@ -827,10 +739,9 @@ int main(void)
 		ps_print(buffer,100,10,12,0);
 		ps_gfx_exec_func();
 		KeyboardDispatcher();
-
 	}
 
-	addInfoName(7,0x78,"PrintStr");
+/*	addInfoName(7,0x78,"PrintStr");
 	addInfoName(7,0x34,"ClearScreen");
 	addInfoName(7,0x20,"Draw");
 	addInfoName(1,0x08,"KeyHandler");
@@ -846,459 +757,19 @@ int main(void)
 	addInfoName(8,0x8,"SetButtonPosition");
 	addInfoName(8,0x38,"DrawDlg");
 	addInfoName(8,0,"DrawButton");
-	addInfoName(8,0x34,"DeleteDlg");
+	addInfoName(8,0x34,"DeleteDlg");*/
+//	addInfoName(7,0x4c,"Komische 4C Funktion");
 
-//	log("Kollisionen");
-
-	//dumplog2((void far*)0x1e44000,0x1000,DUMP_FILE);
-
-//	logfunctables();
 /*	ps_exec_func34();
 	ps_print("Reloading Pointer...",100,10,14,0);
 	ps_gfx_exec_func();*/
-
-//	int0x90_handler=getvect(0x90);
-//	h=int0x90_handler;
-
-//	ptr=(Byte far*)my90handler;
-//	ptr+=0x10;
-
-//        h=&jmpptr;
-
-//	setvect(0x90,(void interrupt(*)(...))ptr);
 	setvect(0x90,my90handler);
 //	log("Reloaded Pointer");
-//for(i=0;i<500000;i++);
-//ps_print("Done...",100,40,14,0);
-//ps_gfx_exec_func();
-//for(i=0;i<500000;i++);
-//exit(0);
-
-//	asm int 0x90;
-//	exit(0);
-
-/*	ptr=(Byte far*)0xdc8001e4;
-
-	if (*ptr==0xc8)
-	{
-		ps_print("Pointer OK... Rewriting...",100,40,14,0);
-		ps_gfx_exec_func();
-
-		*ptr=0xcb;
-	}
-
-	if (*ptr!=0xcb)
-	{
-		ps_print("write protected?",100,70,14,0);
-		ps_gfx_exec_func();
-	}
-/*	ps_get_func_ptr(7,&fso,&foo);
-	foo+=0x78;
-
-	ptr=(DWord far*)((DWord)fso*256*256+foo);
-
-		sprintf(buffer,"%lu",*ptr);
-	ps_print(buffer,150,100,12,0);
-	*ptr=(DWord)my_ltm;
-		sprintf(buffer,"%lu",*ptr);
-	ps_print(buffer,150,130,12,0);
-
-   {
-	Word fs,fo;
-	asm{
-	push ds
-	mov ah,7
-	int 0xff
-//	les bx,addr
-//	mov fo,dx
-//	mov dx,ds
-//	mov fs,dx
-	mov bx,ds
-	mov es,bx
-	mov bx,dx
-	mov ax,es:[bx+0x78]
-	mov cx,es:[bx+0x7a]
-	mov fo,ax
-	mov fs,cx
-	pop ds
-	}
-/*	ultoa((DWord)fs*256*256+fo,buffer,10);
- //	ps_exec_func34();
-	ps_print(buffer,150,40,12,0);
-	sprintf(buffer,"%X:%X",fs,fo);
-	ps_print(buffer,150,70,12,0);
-	sprintf(buffer,"%lu",*ptr);
-	ps_print(buffer,150,100,12,0);
-	sprintf(buffer,"%lu",(DWord)my_ltm);
-	ps_print(buffer,150,130,12,0);
-	sprintf(buffer,"%lu",fso*256*256+foo+78);
-	ps_print(buffer,150,160,12,0);
-}            */
 
 	ps_print("Done.",200,190,14,0);
 	ps_gfx_exec_func();
 
-	for (i=0;i<500000;i++);
-
-	//for (i=0;i<500000;i++);for (i=0;i<500000;i++);
-
-	//setvect(0x90,int0x90_handler);
 	log("going into deep standby....");
 	keep(0, (_SS + (_SP/16) - _psp));
-	return 0;
 }
 
-int oldmain(void)
-{
-//	char *buffer;
-  //void far *p;
-  //Word fs1;
-  //DWord g;
-  //unsigned long int h;
-  //char far *cp;
-  Word fs,fo,fs2,fo2,fs1,fo1,fsa,foa,fsg,fog;
-    Word var=0;
-//  Word a,b;
-  void far* add;
-  DWord a=0,j;
-  FILE *f;
-  ps_get_func_ptr(8,&fs,&fo);
-  ps_get_func_ptr(7,&fsg,&fog);
-  ps_get_func_ptr(0xa,&fsa,&foa);
-  ps_get_func_ptr(1,&fs1,&fo1);
-
-  f=fopen("D:\\vect.txt","w");
-  for(i=0;i<256;i++)
-  {
-	char buffer[100];
-	add=getvect(i);
-	fs=hlp_ptr2seg((void*)add);
-	fo=hlp_ptr2ofs((void*)add);
-	ultoa((DWord)add,buffer,10);
-	fprintf(f,buffer);
-	fprintf(f," 0x%X: %04X:%04X %lu\n",i,fs,fo,add);
-
-//  ps_exec_func34();
-//  ps_print(buffer,320,10,12,0);
-  }//  */
-  fclose(f);
-/* asm{
-// mov ax,0xff00
-// int 0x10
-//mov bx,2
-//mov ax,0x5801
-//int 0x21
-push cs
-push offset back
-push ss
-push 0
-mov bx, fs
-mov es,bx
-mov bx,fo
-call dword ptr es:[bx+8]
-mov bx,fo
-call dword ptr es:[bx+0x14]
- }                         */
-/* asm{
- push 2
- push 2
- mov bx,fs
- mov es,bx
- mov bx,fo
- call dword ptr es:[bx+0x30]
- mov fs2,dx
- mov fo2,ax
- mov es,dx
- mov bx, ax
- mov es:[bx+8],ds
- mov word ptr es:[bx+6],offset ka
- push word ptr es:[bx+0x23]
- push word ptr es:[bx+0x21]
- push 1
- mov bx,fs
- mov es,bx
- mov bx,fo
- call dword ptr es:[bx+4]
- mov bx,fs2
- mov es,bx
- mov bx,fo2
- push word ptr es:[bx+0x23]
- mov ax,es:[bx+0x21]
- push ax
- push ds
- push offset smsg
- mov bx, fs
- mov es,bx
- mov bx,fo
- call dword ptr es:[bx+0x10]
- mov bx,fs2
- mov es,bx
- mov bx,fo2
- push word ptr es:[bx+0x23]
- push 0
- push 100
- mov bx, fs
- mov es,bx
- mov bx,fo
- call dword ptr es:[bx+0x14]
- push fs2
- push fo2
-  mov bx, fs
- mov es,bx
- mov bx,fo
-
- call dword ptr es:[bx+0x68]
- push 0
-  mov bx, fs
- mov es,bx
- mov bx,fo
-
- call dword ptr es:[bx+0x78]
- }
- ps_exec_func34();
- asm{
- push fs2
- push fo2
- mov bx, fs
- mov es,bx
- mov bx,fo
- call dword ptr es:[bx+0x38]
- mov bx, fsa
- mov es,bx
- mov bx,foa
- push 0
- push 0x58
- push 0x2f0
- push 0x172
- push 0
- push 1
- call dword ptr es:[bx+0x38]
- }*/
-/*while(!var)
- {
- Word rue,rue2;
- asm{
- push cs
- push offset back
- push ss
- lea ax,var
- push ax
- mov bx,fs1
- mov es,bx
- mov bx,fo1
- call dword ptr es:[bx+0x8]
-
-   mov rue,ax
- mov bx,fs1
- mov es,bx
- mov bx,fo1
- call dword ptr es:[bx+0x14]
- mov rue2,ax
- }
-  ps_exec_func34();
- itoa(rue,buffer,10);
- ps_print(buffer,320,10,12,0);
- itoa(rue2,buffer,10);
- ps_print(buffer,320,40,12,0);
- itoa(i,buffer,10);
- ps_print(buffer,320,70,12,0);
-
- }                            */
-/* itoa(ka,buffer,10);
- ps_print(buffer,320,10,12,0);
-   for (i=0; i<500000; i++);*/
-// return 0;
-/*  asm{
-  mov bx,fs
-  mov es,bx
-  mov bx,fo
-  mov ax,WORD PTR es:[bx+0x34]
-  mov a,ax
-  mov ax,WORD PTR es:[bx+0x36]
-  mov b,ax
-   }          */
-   {
-	Word fs,fo;
-	asm{
-	push ds
-	mov ah,7
-	int 0xff
-//	les bx,addr
-//	mov fo,dx
-//	mov dx,ds
-//	mov fs,dx
-	mov bx,ds
-	mov es,bx
-	mov bx,dx
-	mov ax,es:[bx+0x78]
-	mov cx,es:[bx+0x7a]
-	mov fo,ax
-	mov fs,cx
-	pop ds
-	}
-	ultoa((DWord)fs*256*256+fo,buffer,10);
-	ps_exec_func34();
-	ps_print(buffer,150,10,12,0);
-	sprintf(buffer,"%X:%X",fs,fo);
-	ps_print(buffer,150,40,12,0);
-}
-  //buffer=(char*)malloc(30000);
-//  ps_print(smsg,320,10,12,0);
-  ps_gfx_exec_func();
-//DWord p=0x943b*256*256+0x21cc;
-  //fs1=hlp_ptr2seg2(p);
-//ps_get_func_ptr(PS_GFX_FUNC_NO,&fs,&fo);
-
-  //p=(char far *)(unsigned long)(0x90070000);
-  //g=2486894592;
-  //h=2486894592;
-  //p=(void far *)g;
-  //cp=(char far *)g;
- // fs1=hlp_ptr2seg(p);
-  //_fmemcpy(buffer,(void far*)(0x943b0000),30000);
-/*  asm{
-  mov es,fs
-  mov bx,fo
-  mov ax,es:[bx+20]
-  mov fo,ax
-  }*/
-
-//  getch();
-
-  for (i=0; i<500000; i++); // delay ~2
-
-/*for (i=0;i<500000;i++)
-{
-  itoa(i,buffer,10);
-  ps_exec_func34();
-  ps_print(buffer,320,10,12,0);
-} */
-//for (i=0; i<500000; i++); // delay ~2
-
-  // b=(void*)buffer;
-/*asm{
-	mov bp,offset buffer
-//	mov es,seg b
-	sidt ds:[bp]
-//	sidt ptr b
-}   */
-
-/*	f=fopen("d:\\dump.txt","wb");
-  for (i=0;i<0x10000;i+=0x1000)
-      {
-	DWord ptr;
-	DWord written=0;
-	char filename2[100];
-	char buffer[10];
-	char filename[]="D:\\log";
-	filename2[0]=0;
-	ultoa(i,buffer,16);
-	strcat(filename2,filename);
-	strcat(filename2,buffer);
-	strcat(filename2,".txt");
-
-
-
-	ptr=i*256*256;
-	//written=fwrite((void far*)ptr,0x1000,16,f);
-	for (j=0;j<0x10000;j++)
-	{
-		ptr++;written++;
-		putc(*((Byte far*)ptr),f);
-	}
-	a+=written;
-	ps_exec_func34();
-	ps_print(buffer,200,10,14,0);
-	ultoa(written,buffer,16);
-	ps_print(buffer,200,40,14,0);
-	ultoa(a,buffer,16);
-	ps_print(buffer,200,70,14,0);
-	ps_gfx_exec_func();
-
-	KeyboardDispatcher();
-  }
-  fclose(f);*/
-  {
-  Word segm,ofs,segm2,ofs2;
-  char bufferstr[100];
-  KeyboardDispatcher();
-  asm  {
-  push ds
-  mov bx,fsg
-  mov es,bx
-  mov bx,fog
-  lds cx,dword ptr es:[bx+0x20]
-  mov ofs,cx
-  mov cx,ds
-  mov segm,cx
-  mov es,cx
-  mov bx,ofs
-  lds cx,dword ptr es:[bx]
-  mov ofs2,cx
-  mov cx,ds
-  mov segm2,cx
-  pop ds
-  }
-  ps_exec_func34();
-  sprintf(bufferstr,"%X:%X",fsg,fog);
-  ps_print(bufferstr,200,10,14,0);
-  sprintf(bufferstr,"%X:%X",segm,ofs);
-  ps_print(bufferstr,200,40,14,0);
-  sprintf(bufferstr,"%X:%X",segm2,ofs2);
-  ps_print(bufferstr,200,70,14,0);
-  ps_gfx_exec_func();
-  for (i=0;i<500000;i++);
-  }
-  while(1)
-  {
-  Byte stunde,min,sec;
-  char bufferstr[30];
-  asm{
-     mov ah,2
-     int 0x1a
-     mov ax,cx
-     mov stunde,ah
-     mov min,al
-     mov sec,dh
-  }
-  ps_exec_func34();
-  sprintf(bufferstr,"%d:%d:%d",real(stunde),real(min),real(sec));
-  ps_print(bufferstr,200,10,14,0);
-  ps_gfx_exec_func();
-
-  KeyboardDispatcher();
-for (i=0;i<200000;i++);
-  }
-  //fprintf(f,"%X:%X\n",sseg,sofs);
-  //fprintf(f,"%X\n",(DWord)bp);
-  /*for(i=0;i<256;i++)
-  {
-	add=getvect(i);
-	fs=hlp_ptr2seg((void*)add);
-	fo=hlp_ptr2ofs((void*)add);
-	ultoa((DWord)add,buffer,10);
-	fprintf(f,buffer);
-	fprintf(f," 0x%X: %04X:%04X %lu\n",i,fs,fo,add);
-
-//  ps_exec_func34();
-//  ps_print(buffer,320,10,12,0);
-  }  */
-  //fprintf(f,"%04X:%04X\n",a,b);
-  //fwrite((Byte*)s.strptr,sizeof(smsg),1,f);
-//  fwrite((void far*)(0x965b0),65535,1,f);
-/*for (a=0;a<131070;a+=65535)
-{
-  a=(DWord)(void far*)a;
-  fwrite((void far*)a,65535,1,f);
- // fflush(f);
-  }
-  fclose(f);      */
-  /*save_segment("D:\\testfd80.bin",0xfd80);
-  save_segment("D:\\testce6b.bin",0xce6b);
-  save_segment("D:\\test0dbf.bin",0x0dbf);*/
-  //save_segment("d:\\test943b.bin",0x943b);
-  //save_segment("d:\\testdad9.bin",0xdad9);
-  //save_segment("D:\\testd9da.bin",0xd9da);
-  //save_segment("",0);
-  return(0);
-}
